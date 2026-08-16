@@ -2,7 +2,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 1. 自动嗅探识别绑定的 R2 存储桶
+    // 1. 自动绑定 R2 存储桶
     let bucket = env.BUCKET || env.MY_BUCKET || env.R2 || env.R2_BUCKET || env.PAN || env.FILES || env.FILE_BUCKET;
     if (!bucket) {
       bucket = Object.values(env).find(v => v && typeof v.list === 'function' && typeof v.get === 'function');
@@ -19,7 +19,6 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // 统一 JSON 响应辅助函数
     function jsonResponse(data, status = 200) {
       return new Response(JSON.stringify(data), {
         status,
@@ -27,7 +26,13 @@ export default {
       });
     }
 
-    // 2. 密码鉴权：完全动态读取环境变量（零硬编码）
+    // 从 HTML 代码中智能提取 <title>
+    function extractTitleFromHtml(html) {
+      if (!html) return "";
+      const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      return match ? match[1].trim() : "";
+    }
+
     const ADMIN_PWD = env.SECRET_PWD || env.SECRET_TOKEN || env.ADMIN_PWD;
 
     function checkAdminAuth() {
@@ -37,7 +42,7 @@ export default {
     }
 
     /* ==========================================================
-       🌐 1. 公开短链页面分发 (/p/:slug)
+       🌐 1. 公开短链单页访问 (/p/:slug)
     ========================================================== */
     if (url.pathname.startsWith("/p/")) {
       const rawSlug = url.pathname.slice(3).replace(/\/+$/, "").trim();
@@ -78,7 +83,6 @@ export default {
         });
       }
 
-      // 检查页面独立访问密码
       const pageMeta = object.customMetadata || {};
       const requiredPassword = pageMeta.password;
       const clientPass = url.searchParams.get("pwd") || request.headers.get("x-page-password");
@@ -132,10 +136,9 @@ export default {
     }
 
     /* ==========================================================
-       🛠️ 2. API 接口路由 (/api/*)
+       🛠️ 2. API 管理接口
     ========================================================== */
     try {
-      // 密码握手验证端点
       if (url.pathname === "/api/auth/verify" && request.method === "POST") {
         return jsonResponse({ valid: checkAdminAuth() });
       }
@@ -145,20 +148,29 @@ export default {
           return jsonResponse({ error: "未检测到绑定的 R2 存储桶" }, 500);
         }
 
-        // 获取列表
+        // 获取列表（显式 include customMetadata）
         if (url.pathname === "/api/page/list" && request.method === "GET") {
           if (!checkAdminAuth()) return jsonResponse({ error: "Unauthorized" }, 401);
 
-          const listed = await bucket.list({ prefix: "_pages/" });
-          const pages = [];
+          const listed = await bucket.list({
+            prefix: "_pages/",
+            include: ["customMetadata", "httpMetadata"]
+          });
 
+          const pages = [];
           for (const obj of (listed.objects || [])) {
             if (!obj.key.endsWith(".html")) continue;
             const slug = obj.key.slice("_pages/".length, -5);
             const meta = obj.customMetadata || {};
+            
+            let displayTitle = slug;
+            if (meta.title) {
+              try { displayTitle = decodeURIComponent(meta.title); } catch (_) { displayTitle = meta.title; }
+            }
+
             pages.push({
               slug,
-              title: meta.title ? decodeURIComponent(meta.title) : slug,
+              title: displayTitle,
               size: obj.size,
               date: obj.uploaded ? obj.uploaded.toISOString().split("T")[0] : "-",
               hasPassword: Boolean(meta.password)
@@ -169,7 +181,7 @@ export default {
           return jsonResponse({ success: true, pages });
         }
 
-        // 读取源码
+        // 获取源码
         if (url.pathname === "/api/page/get" && request.method === "GET") {
           if (!checkAdminAuth()) return jsonResponse({ error: "Unauthorized" }, 401);
           const slug = (url.searchParams.get("slug") || "").trim().toLowerCase();
@@ -180,16 +192,23 @@ export default {
 
           const html = await object.text();
           const meta = object.customMetadata || {};
+          let title = slug;
+          if (meta.title) {
+            try { title = decodeURIComponent(meta.title); } catch (_) { title = meta.title; }
+          } else {
+            title = extractTitleFromHtml(html) || slug;
+          }
+
           return jsonResponse({
             success: true,
             slug,
-            title: meta.title ? decodeURIComponent(meta.title) : slug,
+            title,
             password: meta.password || "",
             html
           });
         }
 
-        // 发布 / 覆盖部署单页
+        // 发布 / 覆盖单页
         if (url.pathname === "/api/page/publish" && request.method === "POST") {
           if (!checkAdminAuth()) return jsonResponse({ error: "Unauthorized" }, 401);
 
@@ -197,23 +216,30 @@ export default {
           try {
             reqData = await request.json();
           } catch (_) {
-            return jsonResponse({ error: "请求格式不合规，必须为 JSON" }, 400);
+            return jsonResponse({ error: "请求格式不合规" }, 400);
           }
 
-          const { title, slug, html, password } = reqData;
+          const { slug, html, password } = reqData;
+          let { title } = reqData;
 
           if (!html || !html.trim()) {
             return jsonResponse({ error: "HTML 源码不能为空" }, 400);
           }
 
-          // 智能 Slug 自愈：过滤非法字符；若为空或纯中文，自动生成优雅随机字母数字
+          // 自动抓取标题
+          if (!title || !title.trim()) {
+            title = extractTitleFromHtml(html);
+          }
+
           let cleanSlug = (slug || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
           if (!cleanSlug) {
             cleanSlug = "p" + Math.random().toString(36).substring(2, 7);
           }
 
+          const finalTitle = (title && title.trim()) ? title.trim() : cleanSlug;
+
           const customMetadata = {
-            title: encodeURIComponent((title || cleanSlug).slice(0, 100)),
+            title: encodeURIComponent(finalTitle.slice(0, 100)),
             updatedAt: new Date().toISOString()
           };
 
@@ -226,7 +252,7 @@ export default {
             customMetadata
           });
 
-          return jsonResponse({ success: true, slug: cleanSlug, url: `/p/${cleanSlug}` });
+          return jsonResponse({ success: true, slug: cleanSlug, title: finalTitle, url: `/p/${cleanSlug}` });
         }
 
         // 删除单页
