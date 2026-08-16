@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>一束阳光 - 静态单页极速托管</title>
+
+  <!-- 🌞 标签栏发光可爱太阳图标 (SVG Data-URI) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='24' fill='%23f59e0b'/><g stroke='%23f59e0b' stroke-width='6' stroke-linecap='round'><line x1='50' y1='10' x2='50' y2='20'/><line x1='50' y1='80' x2='50' y2='90'/><line x1='10' y1='50' x2='20' y2='50'/><line x1='80' y1='50' x2='90' y2='50'/><line x1='22' y1='22' x2='29' y2='29'/><line x1='71' y1='71' x2='78' y2='78'/><line x1='22' y1='78' x2='29' y2='71'/><line x1='71' y1='29' x2='78' y2='22'/></g><circle cx='42' cy='46' r='3.5' fill='%23ffffff'/><circle cx='58' cy='46' r='3.5' fill='%23ffffff'/><path d='M 40 56 Q 50 65 60 56' stroke='%23ffffff' stroke-width='3.5' fill='none' stroke-linecap='round'/></svg>">
+
+  <style>
+    :root {
+      --primary: #f59e0b;
+      --primary-hover: #d97706;
+      --bg-gradient: linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fde68a 100%);
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-border: rgba(253, 230, 138, 0.85);
+      --text-main: #1f2937;
+      --text-sub: #6b7280;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.6); }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      color: var(--text-main);
+      padding: 20px 16px 50px;
+    }
+
+    .container { max-width: 1440px; margin: 0 auto; }
+
+    /* 头部区域 */
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 16px;
+      margin-bottom: 18px;
+      border-bottom: 1px dashed rgba(245, 158, 11, 0.35);
+    }
+
+    .logo-area { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      font-size: 32px;
+      background: #fef3c7;
+      border-radius: 14px;
+      padding: 6px 10px;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.18);
+      line-height: 1;
+    }
+    .logo-title { font-size: 22px; font-weight: 700; }
+    .logo-badge { font-size: 14px; color: var(--primary); margin-left: 4px; font-weight: 600; }
+    .header-desc { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
+
+    .header-toolbar { display: flex; align-items: center; gap: 10px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background: #fff;
+      color: var(--text-main);
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      outline: none;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--primary);
+      box-shadow: 0 3px 8px rgba(245, 158, 11, 0.15);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    /* 工作台双栏 */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 992px) {
+      .workspace-grid { grid-template-columns: 1fr; }
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.06);
+      display: flex;
+      flex-direction: column;
+      height: 680px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .panel-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+
+    /* 配置表单行 */
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1.2fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 640px) {
+      .config-grid { grid-template-columns: 1fr; }
+    }
+
+    .input-field {
+      padding: 8px 12px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px;
+      font-size: 13px;
+      background: #fff;
+      outline: none;
+    }
+    .input-field:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+
+    /* 代码编辑框 */
+    .code-editor {
+      flex: 1;
+      width: 100%;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 12px;
+      padding: 14px;
+      font-family: "Fira Code", Consolas, Monaco, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      background: #0f172a;
+      color: #f8fafc;
+      outline: none;
+      resize: none;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    /* 实时沙盒预览区 */
+    .preview-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(241, 245, 249, 0.6);
+      border-radius: 14px;
+      border: 1px solid rgba(0,0,0,0.06);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .preview-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #fff;
+      transition: width 0.25s ease;
+    }
+
+    .preview-iframe.mobile-mode {
+      width: 375px;
+      height: 600px;
+      border-radius: 24px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.15);
+      border: 6px solid #1f2937;
+    }
+
+    /* 资产管理库列表 */
+    .assets-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.06);
+    }
+
+    .assets-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .page-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .page-card {
+      background: #fff;
+      border: 1px solid rgba(253, 230, 138, 0.9);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 3px 10px rgba(245, 158, 11, 0.04);
+      transition: all 0.2s ease;
+    }
+
+    .page-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+      box-shadow: 0 8px 20px rgba(245, 158, 11, 0.12);
+    }
+
+    .page-card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
+    .page-card-slug { font-size: 12px; color: var(--primary-hover); font-family: monospace; }
+    .page-card-meta { font-size: 12px; color: var(--text-sub); margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .page-card-actions { display: flex; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,0.06); }
+
+    .action-btn {
+      flex: 1;
+      padding: 6px 0;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #f8fafc;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      color: var(--text-main);
+      transition: all 0.15s;
+    }
+    .action-btn:hover { background: #fef3c7; border-color: var(--primary); }
+
+    /* Toast 浮动通知 */
+    .toast-msg {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(31, 41, 55, 0.94);
+      color: #fff;
+      padding: 9px 20px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      backdrop-filter: blur(8px);
+      z-index: 10000;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .toast-msg.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <div id="toastMsg" class="toast-msg">✓ 操作成功</div>
+
+  <div class="container">
+    <header class="header">
+      <div class="logo-area">
+        <div class="logo-icon">☀️</div>
+        <div>
+          <div class="logo-title">一束阳光 <span class="logo-badge">静态网页极速托管</span></div>
+          <div class="header-desc">AI 生成网页 / H5 工具单页极速部署、秒级调试与个性短链分发中枢</div>
+        </div>
+      </div>
+
+      <div class="header-toolbar">
+        <button id="authBtn" class="btn" onclick="promptAdminAuth()">🔐 权限验证</button>
+      </div>
+    </header>
+
+    <!-- 工作台 -->
+    <div class="workspace-grid">
+      <!-- 左栏：录入与配置 -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">📄 网页源码与配置</span>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn" onclick="document.getElementById('fileUpload').click()">📁 导入 .html 文件</button>
+            <button class="btn" onclick="loadDemoCode()">✨ 载入范例</button>
+            <button class="btn" onclick="clearEditor()">🗑️ 清空</button>
+            <input type="file" id="fileUpload" accept=".html,.htm" style="display:none;" onchange="handleFileImport(event)" />
+          </div>
+        </div>
+
+        <div class="config-grid">
+          <input type="text" id="pageTitleInput" class="input-field" placeholder="页面标题（如：房贷计算器）" />
+          <input type="text" id="pageSlugInput" class="input-field" placeholder="短链后缀（如：calc，留空随机）" />
+          <input type="password" id="pagePasswordInput" class="input-field" placeholder="访问密码（可选，留空公开）" />
+        </div>
+
+        <textarea id="htmlCodeEditor" class="code-editor" placeholder="在此粘贴完整的 HTML 代码，或直接拖拽 .html 文件至此处..."></textarea>
+
+        <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span id="codeSizeTip" style="font-size: 12px; color: var(--text-sub);">代码大小：0 B</span>
+          <button class="btn btn-primary" style="padding: 9px 24px; font-size: 14px;" onclick="publishPage()">🚀 立即发布并生成专属链接</button>
+        </div>
+      </div>
+
+      <!-- 右栏：沙盒实时调试 -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <span class="panel-title">👁️ 沙盒实时预览</span>
+          <div style="display: flex; gap: 6px;">
+            <button id="viewPcBtn" class="btn btn-primary" onclick="setPreviewMode('pc')">💻 电脑模式</button>
+            <button id="viewMobileBtn" class="btn" onclick="setPreviewMode('mobile')">📱 手机模式</button>
+            <button class="btn" onclick="refreshPreview()">🔄 刷新视图</button>
+          </div>
+        </div>
+
+        <div class="preview-container">
+          <iframe id="previewIframe" class="preview-iframe" sandbox="allow-scripts allow-modals allow-same-origin allow-forms"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部：我的已托管资产库 -->
+    <div class="assets-section">
+      <div class="assets-header">
+        <span style="font-size: 16px; font-weight: 700;">📦 我已托管的单页资产 (<span id="pageCount">0</span>)</span>
+        <button class="btn" onclick="loadPageList()">🔄 刷新列表</button>
+      </div>
+      <div class="page-grid" id="pageGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    const AUTH_STORAGE_KEY = "SUN_HOST_ADMIN_TOKEN";
+    let adminToken = sessionStorage.getItem(AUTH_STORAGE_KEY) || "";
+
+    const titleInput = document.getElementById("pageTitleInput");
+    const slugInput = document.getElementById("pageSlugInput");
+    const pwdInput = document.getElementById("pagePasswordInput");
+    const codeEditor = document.getElementById("htmlCodeEditor");
+    const previewIframe = document.getElementById("previewIframe");
+    const sizeTip = document.getElementById("codeSizeTip");
+
+    let previewTimer = null;
+
+    // 实时沙盒渲染与防抖防卡死
+    codeEditor.addEventListener("input", () => {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(updatePreview, 300);
+      sizeTip.innerText = `代码大小：${formatBytes(new Blob([codeEditor.value]).size)}`;
+    });
+
+    function updatePreview() {
+      const code = codeEditor.value;
+      if (!code.trim()) {
+        previewIframe.srcdoc = "<div style='display:flex;height:100vh;align-items:center;justify-content:center;font-family:sans-serif;color:#94a3b8;'>等待输入 HTML 源码...</div>";
+        return;
+      }
+      previewIframe.srcdoc = code;
+    }
+
+    function refreshPreview() {
+      updatePreview();
+      showToast("视图已刷新");
+    }
+
+    function setPreviewMode(mode) {
+      const pcBtn = document.getElementById("viewPcBtn");
+      const mobileBtn = document.getElementById("viewMobileBtn");
+      if (mode === "mobile") {
+        previewIframe.classList.add("mobile-mode");
+        mobileBtn.classList.add("btn-primary");
+        pcBtn.classList.remove("btn-primary");
+      } else {
+        previewIframe.classList.remove("mobile-mode");
+        pcBtn.classList.add("btn-primary");
+        mobileBtn.classList.remove("btn-primary");
+      }
+    }
+
+    // 导入 HTML 文件
+    function handleFileImport(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        codeEditor.value = evt.target.result;
+        titleInput.value = file.name.replace(/\.[^/.]+$/, "");
+        slugInput.value = file.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+        updatePreview();
+        sizeTip.innerText = `代码大小：${formatBytes(new Blob([codeEditor.value]).size)}`;
+        showToast("已成功导入 HTML 源码");
+      };
+      reader.readAsText(file);
+    }
+
+    function promptAdminAuth() {
+      const pwd = prompt("请输入管理员授权密码：");
+      if (pwd) {
+        adminToken = pwd;
+        sessionStorage.setItem(AUTH_STORAGE_KEY, pwd);
+        document.getElementById("authBtn").innerText = "🔓 已验证管理";
+        loadPageList();
+      }
+    }
+
+    // 发布单页
+    async function publishPage() {
+      if (!adminToken) {
+        promptAdminAuth();
+        if (!adminToken) return;
+      }
+
+      const html = codeEditor.value;
+      if (!html.trim()) { alert("请输入需要托管的 HTML 源码！"); return; }
+
+      const title = titleInput.value.trim() || slugInput.value.trim() || "未命名单页";
+      const slug = slugInput.value.trim();
+      const password = pwdInput.value.trim();
+
+      const res = await fetch("/api/page/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-auth": adminToken },
+        body: JSON.stringify({ title, slug, html, password })
+      });
+
+      if (res.status === 401) {
+        alert("授权失败，密码错误！");
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        adminToken = "";
+        document.getElementById("authBtn").innerText = "🔐 权限验证";
+        return;
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        const fullUrl = `${window.location.origin}/p/${data.slug}`;
+        showToast("🚀 页面已成功上线！");
+        loadPageList();
+        
+        if (confirm(`发布成功！专属访问链接：\n${fullUrl}\n\n是否立即在新标签页打开？`)) {
+          window.open(fullUrl, "_blank");
+        }
+      } else {
+        alert("发布失败：" + (data.error || "未知异常"));
+      }
+    }
+
+    // 加载已发布单页列表
+    async function loadPageList() {
+      if (!adminToken) return;
+      try {
+        const res = await fetch("/api/page/list", {
+          headers: { "x-admin-auth": adminToken }
+        });
+        if (res.status === 401) return;
+        const data = await res.json();
+        renderPageList(data.pages || []);
+      } catch (_) {}
+    }
+
+    function renderPageList(pages) {
+      const grid = document.getElementById("pageGrid");
+      document.getElementById("pageCount").innerText = pages.length;
+      grid.innerHTML = "";
+
+      if (pages.length === 0) {
+        grid.innerHTML = "<div style='grid-column: 1 / -1; text-align:center; padding: 40px 0; color:#9ca3af;'>暂未托管任何单页，在上方面板粘贴代码即可秒级发布。</div>";
+        return;
+      }
+
+      pages.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "page-card";
+        const pageUrl = `${window.location.origin}/p/${p.slug}`;
+
+        card.innerHTML = `
+          <div>
+            <div class="page-card-title">${escapeHtml(p.title)}</div>
+            <div class="page-card-slug">/p/${p.slug} ${p.hasPassword ? '🔒 密码保护' : '🌐 公开'}</div>
+          </div>
+          <div>
+            <div class="page-card-meta">
+              <span>${formatBytes(p.size)}</span>
+              <span>${p.date}</span>
+            </div>
+            <div class="page-card-actions">
+              <button class="action-btn" onclick="copyText('${pageUrl}')">🔗 复制链接</button>
+              <button class="action-btn" onclick="editPageSource('${p.slug}')">✏️ 修改</button>
+              <a href="${pageUrl}" target="_blank" class="action-btn">👁️ 打开</a>
+              <button class="action-btn" style="color:#ef4444;" onclick="deletePage('${p.slug}')">🗑️ 删除</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // 回填源码编辑
+    async function editPageSource(slug) {
+      const res = await fetch(`/api/page/get?slug=${encodeURIComponent(slug)}`, {
+        headers: { "x-admin-auth": adminToken }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        titleInput.value = data.title;
+        slugInput.value = data.slug;
+        pwdInput.value = data.password;
+        codeEditor.value = data.html;
+        updatePreview();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        showToast("✓ 已回填源码，修改后点击「立即发布」即可覆盖更新");
+      }
+    }
+
+    // 删除单页
+    async function deletePage(slug) {
+      if (!confirm(`确定要彻底下线并删除单页 /p/${slug} 吗？`)) return;
+      const res = await fetch("/api/page/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-auth": adminToken },
+        body: JSON.stringify({ slug })
+      });
+      if (res.ok) {
+        showToast("已成功下线并删除");
+        loadPageList();
+      }
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => showToast("✓ 链接已复制到剪贴板！"));
+      } else {
+        prompt("请复制链接：", text);
+      }
+    }
+
+    function clearEditor() {
+      if (confirm("确定要清空编辑框吗？")) {
+        titleInput.value = "";
+        slugInput.value = "";
+        pwdInput.value = "";
+        codeEditor.value = "";
+        updatePreview();
+      }
+    }
+
+    function loadDemoCode() {
+      titleInput.value = "一束阳光 · 呼吸时钟";
+      slugInput.value = "clock";
+      codeEditor.value = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>一束阳光 · 呼吸时钟</title>
+  <style>
+    body { margin: 0; background: #0f172a; color: #f59e0b; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: monospace; }
+    .clock { font-size: 64px; font-weight: bold; letter-spacing: 4px; text-shadow: 0 0 24px rgba(245, 158, 11, 0.4); }
+    .date { font-size: 18px; color: #94a3b8; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="clock" id="time">00:00:00</div>
+  <div class="date" id="date">一束阳光 极速单页</div>
+  <script>
+    function tick() {
+      const now = new Date();
+      document.getElementById('time').innerText = now.toTimeString().split(' ')[0];
+      document.getElementById('date').innerText = now.toISOString().split('T')[0] + ' · 阳光常在';
+    }
+    setInterval(tick, 1000);
+    tick();
+  <\/script>
+</body>
+</html>`;
+      updatePreview();
+      showToast("已载入范例代码");
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toastMsg");
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+
+    function escapeHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024, sizes = ['B', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
+    }
+
+    if (adminToken) {
+      document.getElementById("authBtn").innerText = "🔓 已验证管理";
+      loadPageList();
+    }
+    updatePreview();
+  </script>
+</body>
+</html>
