@@ -37,7 +37,7 @@
 
     .container { max-width: 1440px; margin: 0 auto; }
 
-    /* 头部区域 */
+    /* 头部 */
     .header {
       display: flex;
       flex-wrap: wrap;
@@ -96,7 +96,13 @@
     }
     .btn-primary:hover { background: var(--primary-hover); }
 
-    /* 工作台双栏 */
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* 工作台 */
     .workspace-grid {
       display: grid;
       grid-template-columns: 1.05fr 0.95fr;
@@ -131,7 +137,6 @@
 
     .panel-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
 
-    /* 配置表单行 */
     .config-grid {
       display: grid;
       grid-template-columns: 1.4fr 1.2fr 1fr;
@@ -156,7 +161,6 @@
       box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
     }
 
-    /* 代码编辑框 */
     .code-editor {
       flex: 1;
       width: 100%;
@@ -173,7 +177,6 @@
       box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);
     }
 
-    /* 实时沙盒预览区 */
     .preview-container {
       flex: 1;
       display: flex;
@@ -202,7 +205,7 @@
       border: 6px solid #1f2937;
     }
 
-    /* 资产管理库列表 */
+    /* 资产库 */
     .assets-section {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -272,7 +275,7 @@
       transform: translateX(-50%) translateY(-20px);
       background: rgba(31, 41, 55, 0.94);
       color: #fff;
-      padding: 9px 20px;
+      padding: 10px 22px;
       border-radius: 24px;
       font-size: 13px;
       font-weight: 600;
@@ -284,6 +287,7 @@
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .toast-msg.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast-msg.error { background: rgba(220, 38, 38, 0.94); }
   </style>
 </head>
 <body>
@@ -305,14 +309,13 @@
       </div>
     </header>
 
-    <!-- 工作台 -->
     <div class="workspace-grid">
-      <!-- 左栏：录入与配置 -->
+      <!-- 左栏：源码与配置 -->
       <div class="panel-card">
         <div class="panel-header">
           <span class="panel-title">📄 网页源码与配置</span>
           <div style="display: flex; gap: 6px;">
-            <button class="btn" onclick="document.getElementById('fileUpload').click()">📁 导入 .html 文件</button>
+            <button class="btn" onclick="document.getElementById('fileUpload').click()">📁 导入文件</button>
             <button class="btn" onclick="loadDemoCode()">✨ 载入范例</button>
             <button class="btn" onclick="clearEditor()">🗑️ 清空</button>
             <input type="file" id="fileUpload" accept=".html,.htm" style="display:none;" onchange="handleFileImport(event)" />
@@ -320,8 +323,8 @@
         </div>
 
         <div class="config-grid">
-          <input type="text" id="pageTitleInput" class="input-field" placeholder="页面标题（如：房贷计算器）" />
-          <input type="text" id="pageSlugInput" class="input-field" placeholder="短链后缀（如：calc，留空随机）" />
+          <input type="text" id="pageTitleInput" class="input-field" placeholder="页面标题（如：呼吸时钟）" />
+          <input type="text" id="pageSlugInput" class="input-field" placeholder="短链后缀（如：clock，留空随机）" />
           <input type="password" id="pagePasswordInput" class="input-field" placeholder="访问密码（可选，留空公开）" />
         </div>
 
@@ -329,7 +332,7 @@
 
         <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
           <span id="codeSizeTip" style="font-size: 12px; color: var(--text-sub);">代码大小：0 B</span>
-          <button class="btn btn-primary" style="padding: 9px 24px; font-size: 14px;" onclick="publishPage()">🚀 立即发布并生成专属链接</button>
+          <button id="publishBtn" class="btn btn-primary" style="padding: 9px 24px; font-size: 14px;" onclick="publishPage()">🚀 立即发布并生成专属链接</button>
         </div>
       </div>
 
@@ -350,7 +353,7 @@
       </div>
     </div>
 
-    <!-- 底部：我的已托管资产库 -->
+    <!-- 底部资产库 -->
     <div class="assets-section">
       <div class="assets-header">
         <span style="font-size: 16px; font-weight: 700;">📦 我已托管的单页资产 (<span id="pageCount">0</span>)</span>
@@ -370,13 +373,14 @@
     const codeEditor = document.getElementById("htmlCodeEditor");
     const previewIframe = document.getElementById("previewIframe");
     const sizeTip = document.getElementById("codeSizeTip");
+    const publishBtn = document.getElementById("publishBtn");
 
     let previewTimer = null;
 
-    // 实时沙盒渲染与防抖防卡死
+    // 实时沙盒渲染（防抖 400ms）
     codeEditor.addEventListener("input", () => {
       clearTimeout(previewTimer);
-      previewTimer = setTimeout(updatePreview, 300);
+      previewTimer = setTimeout(updatePreview, 400);
       sizeTip.innerText = `代码大小：${formatBytes(new Blob([codeEditor.value]).size)}`;
     });
 
@@ -408,7 +412,6 @@
       }
     }
 
-    // 导入 HTML 文件
     function handleFileImport(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -424,59 +427,95 @@
       reader.readAsText(file);
     }
 
-    function promptAdminAuth() {
+    async function promptAdminAuth() {
       const pwd = prompt("请输入管理员授权密码：");
-      if (pwd) {
-        adminToken = pwd;
-        sessionStorage.setItem(AUTH_STORAGE_KEY, pwd);
-        document.getElementById("authBtn").innerText = "🔓 已验证管理";
-        loadPageList();
+      if (!pwd) return false;
+
+      try {
+        const res = await fetch("/api/auth/verify", {
+          method: "POST",
+          headers: { "x-admin-auth": pwd }
+        });
+        const data = await res.json();
+        if (data.valid) {
+          adminToken = pwd;
+          sessionStorage.setItem(AUTH_STORAGE_KEY, pwd);
+          document.getElementById("authBtn").innerText = "🔓 已验证管理";
+          showToast("✓ 管理员权限已解锁");
+          loadPageList();
+          return true;
+        } else {
+          showToast("密码错误，授权失败！", true);
+          return false;
+        }
+      } catch (err) {
+        showToast("网络连接异常，无法完成验证", true);
+        return false;
       }
     }
 
-    // 发布单页
+    // 🚀 核心：发布单页（含 Loading 状态与全链路容错）
     async function publishPage() {
-      if (!adminToken) {
-        promptAdminAuth();
-        if (!adminToken) return;
-      }
-
       const html = codeEditor.value;
-      if (!html.trim()) { alert("请输入需要托管的 HTML 源码！"); return; }
-
-      const title = titleInput.value.trim() || slugInput.value.trim() || "未命名单页";
-      const slug = slugInput.value.trim();
-      const password = pwdInput.value.trim();
-
-      const res = await fetch("/api/page/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-auth": adminToken },
-        body: JSON.stringify({ title, slug, html, password })
-      });
-
-      if (res.status === 401) {
-        alert("授权失败，密码错误！");
-        sessionStorage.removeItem(AUTH_STORAGE_KEY);
-        adminToken = "";
-        document.getElementById("authBtn").innerText = "🔐 权限验证";
+      if (!html.trim()) {
+        showToast("HTML 源码不能为空！", true);
         return;
       }
 
-      const data = await res.json();
-      if (data.success) {
-        const fullUrl = `${window.location.origin}/p/${data.slug}`;
-        showToast("🚀 页面已成功上线！");
-        loadPageList();
-        
-        if (confirm(`发布成功！专属访问链接：\n${fullUrl}\n\n是否立即在新标签页打开？`)) {
-          window.open(fullUrl, "_blank");
+      if (!adminToken) {
+        const authed = await promptAdminAuth();
+        if (!authed) return;
+      }
+
+      const originalBtnText = publishBtn.innerHTML;
+      publishBtn.disabled = true;
+      publishBtn.innerHTML = "⏳ 正在部署上线中...";
+
+      try {
+        const title = titleInput.value.trim() || slugInput.value.trim() || "未命名单页";
+        const slug = slugInput.value.trim();
+        const password = pwdInput.value.trim();
+
+        const res = await fetch("/api/page/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-admin-auth": adminToken },
+          body: JSON.stringify({ title, slug, html, password })
+        });
+
+        if (res.status === 401) {
+          showToast("授权已过期或密码错误，请重新验证", true);
+          sessionStorage.removeItem(AUTH_STORAGE_KEY);
+          adminToken = "";
+          document.getElementById("authBtn").innerText = "🔐 权限验证";
+          await promptAdminAuth();
+          return;
         }
-      } else {
-        alert("发布失败：" + (data.error || "未知异常"));
+
+        const data = await res.json();
+
+        if (data.success) {
+          const fullUrl = `${window.location.origin}/p/${data.slug}`;
+          showToast("🚀 单页已成功上线发布！");
+          loadPageList();
+          
+          setTimeout(() => {
+            if (confirm(`发布成功！专属访问链接：\n${fullUrl}\n\n是否立即在新标签页打开？`)) {
+              window.open(fullUrl, "_blank");
+            }
+          }, 300);
+        } else {
+          showToast(`发布失败：${data.error || '未知异常'}`, true);
+        }
+
+      } catch (err) {
+        showToast(`网络或服务器异常：${err.message}`, true);
+      } finally {
+        publishBtn.disabled = false;
+        publishBtn.innerHTML = originalBtnText;
       }
     }
 
-    // 加载已发布单页列表
+    // 加载已发布单页资产列表
     async function loadPageList() {
       if (!adminToken) return;
       try {
@@ -495,7 +534,7 @@
       grid.innerHTML = "";
 
       if (pages.length === 0) {
-        grid.innerHTML = "<div style='grid-column: 1 / -1; text-align:center; padding: 40px 0; color:#9ca3af;'>暂未托管任何单页，在上方面板粘贴代码即可秒级发布。</div>";
+        grid.innerHTML = "<div style='grid-column: 1 / -1; text-align:center; padding: 40px 0; color:#9ca3af;'>暂未托管任何单页，在上方粘贴代码即可秒级发布。</div>";
         return;
       }
 
@@ -526,34 +565,44 @@
       });
     }
 
-    // 回填源码编辑
+    // 回填源码在线修改
     async function editPageSource(slug) {
-      const res = await fetch(`/api/page/get?slug=${encodeURIComponent(slug)}`, {
-        headers: { "x-admin-auth": adminToken }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        titleInput.value = data.title;
-        slugInput.value = data.slug;
-        pwdInput.value = data.password;
-        codeEditor.value = data.html;
-        updatePreview();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        showToast("✓ 已回填源码，修改后点击「立即发布」即可覆盖更新");
+      try {
+        const res = await fetch(`/api/page/get?slug=${encodeURIComponent(slug)}`, {
+          headers: { "x-admin-auth": adminToken }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          titleInput.value = data.title;
+          slugInput.value = data.slug;
+          pwdInput.value = data.password;
+          codeEditor.value = data.html;
+          updatePreview();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          showToast("✓ 已回填源码，修改后点击「立即发布」即可覆盖更新");
+        } else {
+          showToast("读取源码失败", true);
+        }
+      } catch (err) {
+        showToast("网络异常", true);
       }
     }
 
     // 删除单页
     async function deletePage(slug) {
       if (!confirm(`确定要彻底下线并删除单页 /p/${slug} 吗？`)) return;
-      const res = await fetch("/api/page/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-auth": adminToken },
-        body: JSON.stringify({ slug })
-      });
-      if (res.ok) {
-        showToast("已成功下线并删除");
-        loadPageList();
+      try {
+        const res = await fetch("/api/page/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-admin-auth": adminToken },
+          body: JSON.stringify({ slug })
+        });
+        if (res.ok) {
+          showToast("已成功下线并删除");
+          loadPageList();
+        }
+      } catch (_) {
+        showToast("删除请求失败", true);
       }
     }
 
@@ -561,7 +610,7 @@
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(text).then(() => showToast("✓ 链接已复制到剪贴板！"));
       } else {
-        prompt("请复制链接：", text);
+        prompt("请手动复制链接：", text);
       }
     }
 
@@ -572,6 +621,7 @@
         pwdInput.value = "";
         codeEditor.value = "";
         updatePreview();
+        sizeTip.innerText = "代码大小：0 B";
       }
     }
 
@@ -604,14 +654,17 @@
 </body>
 </html>`;
       updatePreview();
+      sizeTip.innerText = `代码大小：${formatBytes(new Blob([codeEditor.value]).size)}`;
       showToast("已载入范例代码");
     }
 
-    function showToast(msg) {
+    function showToast(msg, isError = false) {
       const toast = document.getElementById("toastMsg");
       toast.innerText = msg;
+      if (isError) toast.classList.add("error");
+      else toast.classList.remove("error");
       toast.classList.add("show");
-      setTimeout(() => toast.classList.remove("show"), 1800);
+      setTimeout(() => toast.classList.remove("show"), 2200);
     }
 
     function escapeHtml(str) {
@@ -625,11 +678,12 @@
       return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
     }
 
+    // 初始化运行
     if (adminToken) {
       document.getElementById("authBtn").innerText = "🔓 已验证管理";
       loadPageList();
     }
-    updatePreview();
+    loadDemoCode();
   </script>
 </body>
 </html>
