@@ -37,7 +37,6 @@
 
     .container { max-width: 1440px; margin: 0 auto; }
 
-    /* 头部 */
     .header {
       display: flex;
       flex-wrap: wrap;
@@ -61,8 +60,6 @@
     .logo-title { font-size: 22px; font-weight: 700; }
     .logo-badge { font-size: 14px; color: var(--primary); margin-left: 4px; font-weight: 600; }
     .header-desc { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
-
-    .header-toolbar { display: flex; align-items: center; gap: 10px; }
 
     .btn {
       display: inline-flex;
@@ -95,14 +92,8 @@
       box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
     }
     .btn-primary:hover { background: var(--primary-hover); }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none !important; }
 
-    .btn:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-      transform: none !important;
-    }
-
-    /* 工作台 */
     .workspace-grid {
       display: grid;
       grid-template-columns: 1.05fr 0.95fr;
@@ -186,7 +177,6 @@
       border-radius: 14px;
       border: 1px solid rgba(0,0,0,0.06);
       overflow: hidden;
-      position: relative;
     }
 
     .preview-iframe {
@@ -205,7 +195,7 @@
       border: 6px solid #1f2937;
     }
 
-    /* 资产库 */
+    /* 资产库与卡片 */
     .assets-section {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -246,10 +236,44 @@
       box-shadow: 0 8px 20px rgba(245, 158, 11, 0.12);
     }
 
-    .page-card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
-    .page-card-slug { font-size: 12px; color: var(--primary-hover); font-family: monospace; }
-    .page-card-meta { font-size: 12px; color: var(--text-sub); margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
-    .page-card-actions { display: flex; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,0.06); }
+    .page-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 6px;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    .page-card-slug {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--primary-hover);
+      font-family: monospace;
+      background: #fefce8;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .page-card-meta {
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(0,0,0,0.06);
+    }
 
     .action-btn {
       flex: 1;
@@ -267,7 +291,6 @@
     }
     .action-btn:hover { background: #fef3c7; border-color: var(--primary); }
 
-    /* Toast 浮动通知 */
     .toast-msg {
       position: fixed;
       top: 24px;
@@ -304,7 +327,7 @@
         </div>
       </div>
 
-      <div class="header-toolbar">
+      <div>
         <button id="authBtn" class="btn" onclick="promptAdminAuth()">🔐 权限验证</button>
       </div>
     </header>
@@ -323,7 +346,7 @@
         </div>
 
         <div class="config-grid">
-          <input type="text" id="pageTitleInput" class="input-field" placeholder="页面标题（如：呼吸时钟）" />
+          <input type="text" id="pageTitleInput" class="input-field" placeholder="页面标题（留空自动抓取代码标题）" />
           <input type="text" id="pageSlugInput" class="input-field" placeholder="短链后缀（如：clock，留空随机）" />
           <input type="password" id="pagePasswordInput" class="input-field" placeholder="访问密码（可选，留空公开）" />
         </div>
@@ -377,10 +400,23 @@
 
     let previewTimer = null;
 
-    // 实时沙盒渲染（防抖 400ms）
+    // 智能提取 HTML 标题
+    function autoDetectTitle(html) {
+      if (!html) return "";
+      const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      return match ? match[1].trim() : "";
+    }
+
     codeEditor.addEventListener("input", () => {
       clearTimeout(previewTimer);
-      previewTimer = setTimeout(updatePreview, 400);
+      previewTimer = setTimeout(() => {
+        updatePreview();
+        // 若标题输入框为空，自动尝试抓取代码里的 title 填入
+        if (!titleInput.value.trim()) {
+          const detected = autoDetectTitle(codeEditor.value);
+          if (detected) titleInput.value = detected;
+        }
+      }, 400);
       sizeTip.innerText = `代码大小：${formatBytes(new Blob([codeEditor.value]).size)}`;
     });
 
@@ -418,7 +454,8 @@
       const reader = new FileReader();
       reader.onload = (evt) => {
         codeEditor.value = evt.target.result;
-        titleInput.value = file.name.replace(/\.[^/.]+$/, "");
+        const detected = autoDetectTitle(codeEditor.value);
+        titleInput.value = detected || file.name.replace(/\.[^/.]+$/, "");
         slugInput.value = file.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
         updatePreview();
         sizeTip.innerText = `代码大小：${formatBytes(new Blob([codeEditor.value]).size)}`;
@@ -454,7 +491,6 @@
       }
     }
 
-    // 🚀 核心：发布单页（含 Loading 状态与全链路容错）
     async function publishPage() {
       const html = codeEditor.value;
       if (!html.trim()) {
@@ -472,7 +508,8 @@
       publishBtn.innerHTML = "⏳ 正在部署上线中...";
 
       try {
-        const title = titleInput.value.trim() || slugInput.value.trim() || "未命名单页";
+        const detectedTitle = autoDetectTitle(html);
+        const title = titleInput.value.trim() || detectedTitle || slugInput.value.trim() || "未命名单页";
         const slug = slugInput.value.trim();
         const password = pwdInput.value.trim();
 
@@ -499,7 +536,7 @@
           loadPageList();
           
           setTimeout(() => {
-            if (confirm(`发布成功！专属访问链接：\n${fullUrl}\n\n是否立即在新标签页打开？`)) {
+            if (confirm(`发布成功！【${data.title}】\n专属访问链接：\n${fullUrl}\n\n是否立即在新标签页打开？`)) {
               window.open(fullUrl, "_blank");
             }
           }, 300);
@@ -515,7 +552,6 @@
       }
     }
 
-    // 加载已发布单页资产列表
     async function loadPageList() {
       if (!adminToken) return;
       try {
@@ -565,7 +601,6 @@
       });
     }
 
-    // 回填源码在线修改
     async function editPageSource(slug) {
       try {
         const res = await fetch(`/api/page/get?slug=${encodeURIComponent(slug)}`, {
@@ -588,7 +623,6 @@
       }
     }
 
-    // 删除单页
     async function deletePage(slug) {
       if (!confirm(`确定要彻底下线并删除单页 /p/${slug} 吗？`)) return;
       try {
@@ -678,7 +712,6 @@
       return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
     }
 
-    // 初始化运行
     if (adminToken) {
       document.getElementById("authBtn").innerText = "🔓 已验证管理";
       loadPageList();
